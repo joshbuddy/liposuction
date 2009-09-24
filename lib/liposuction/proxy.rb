@@ -54,10 +54,8 @@ module Liposuction
     
     def self.command(*klasses)
       klasses.each do |klass_sym|
-        p klass_sym
         klass = const_get(klass_sym)
-        route = router.add_named_route(klass.name, klass.path)
-        
+        route = router.add_named_route(klass.name, klass.path).to(klass)
         
         route.grapher.significant_keys.each do |k|
           unless klass.method_defined?(k)
@@ -66,41 +64,28 @@ module Liposuction
             ", __FILE__, __LINE__
           end
         end
-        #klass.class_eval "
-        #  attr_accessor #{route.grapher.significant_keys.map{|k| k.inspect}.join(', ')}
-
       end
     end
 
     attr_accessor :delimiter
-
-    def self.name_to_command_class(name)
-      "#{name.to_s.split('_').map{|w| w.capitalize}.join}Command"
-    end
-
-    def name_to_command_class(name)
-      self.class.name_to_command_class(name)
-    end
-
+    
     def initialize(command_delimiter)
       self.delimiter = command_delimiter
     end
-
+    
     def build(&block)
       Builder.new(self, &block)
     end
-
-
+    
     ProcessResponse = Struct.new(:state, :command, :exception)
-
+    
     def build_from_command(command)
       response = router.generator.generate(command.command_type, command.to_hash)
       (command.payload ? [response, command.payload] : [response]).inject("") { |m, c|
         m << c << delimiter
       }
     end
-
-
+    
     def process(data)
       response = ProcessResponse.new(:unrecognized, nil, nil)
 
@@ -113,7 +98,7 @@ module Liposuction
         name = recognition_response.path.route.named
         destination = recognition_response.path.route.destination
 
-        response.command = self.class.const_get(name_to_command_class(name)).new
+        response.command = recognition_response.path.route.destination.new
         response.command.command_type = name
         response.command.proxy = self
         response.command.significant_keys = recognition_response.path.route.grapher.significant_keys
@@ -133,11 +118,8 @@ module Liposuction
         end
       end
 
-      puts "state is #{response.state.inspect}"
-
       case response.state
       when :complete
-        puts "calling finalize!"
         response.command.finalize!
       when :incomplete
         # do nothing

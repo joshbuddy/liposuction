@@ -57,7 +57,6 @@ class MemcacheProxyWithHelp < Liposuction::MemcacheProxy
   
 end
 
-
 proxy = MemcacheProxyWithHelp.new
 builder = proxy.build do
   use CommandLogger
